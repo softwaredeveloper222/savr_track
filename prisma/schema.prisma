@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     User[]
+  deadlines Deadline[]
+  locations Location[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         String   @default("member")
+  phone        String?
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  ownedDeadlines    Deadline[]     @relation("DeadlineOwner")
+  handledDeadlines  Deadline[]     @relation("DeadlineHandler")
+  watchedDeadlines  DeadlineWatcher[]
+  activityLogs      ActivityLog[]
+  reminders         Reminder[]
+}
+
+model Location {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  deadlines Deadline[]
+  createdAt DateTime @default(now())
+}
+
+model Deadline {
+  id             String   @id @default(uuid())
+  title          String
+  category       String
+  status         String   @default("active")
+  expirationDate DateTime
+  issueDate      DateTime?
+  notes          String?
+  isRecurring    Boolean  @default(false)
+  recurringMonths Int?
+  completedAt    DateTime?
+  completionNote String?
+
+  ownerId        String
+  owner          User     @relation("DeadlineOwner", fields: [ownerId], references: [id])
+  handledById    String?
+  handledBy      User?    @relation("DeadlineHandler", fields: [handledById], references: [id])
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id])
+  locationId     String?
+  location       Location? @relation(fields: [locationId], references: [id])
+
+  watchers       DeadlineWatcher[]
+  documents      Document[]
+  activityLogs   ActivityLog[]
+  reminders      Reminder[]
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model DeadlineWatcher {
+  id         String   @id @default(uuid())
+  deadlineId String
+  deadline   Deadline @relation(fields: [deadlineId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([deadlineId, userId])
+}
+
+model Document {
+  id         String   @id @default(uuid())
+  filename   String
+  originalName String
+  mimeType   String
+  size       Int
+  path       String
+  deadlineId String
+  deadline   Deadline @relation(fields: [deadlineId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+}
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  action     String
+  details    String?
+  deadlineId String
+  deadline   Deadline @relation(fields: [deadlineId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model Reminder {
+  id         String   @id @default(uuid())
+  type       String
+  daysBefore Int
+  sentAt     DateTime?
+  deadlineId String
+  deadline   Deadline @relation(fields: [deadlineId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  createdAt  DateTime @default(now())
+}
