@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "create-superadmin": "tsx scripts/create-superadmin.ts",
+    "check-superadmin": "tsx scripts/check-superadmin.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -16,6 +18,8 @@
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.577.0",
     "next": "^16.2.1",
+    "nodemailer": "^8.0.4",
+    "pdf-parse": "^2.4.5",
     "prisma": "^5.22.0",
     "react": "^18",
     "react-dom": "^18",
@@ -25,6 +29,8 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.0",
+    "@types/pdf-parse": "^1.1.5",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/uuid": "^10.0.0",
@@ -32,6 +38,7 @@
     "eslint-config-next": "^16.2.1",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

@@ -1,5 +1,6 @@
 import { getAuthUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { decryptBuffer } from "@/lib/encryption";
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 
@@ -18,7 +19,7 @@ export async function GET(
     where: { id },
     include: {
       deadline: {
-        select: { companyId: true },
+        select: { companyId: true, title: true },
       },
     },
   });
@@ -27,13 +28,27 @@ export async function GET(
     return NextResponse.json({ error: "Document not found" }, { status: 404 });
   }
 
+  // Log access
+  await prisma.accessLog.create({
+    data: {
+      action: "document_downloaded",
+      resource: `document:${document.id}`,
+      details: `Downloaded ${document.originalName} from ${document.deadline.title}`,
+      userId: user.id,
+    },
+  });
+
   try {
     const fileBuffer = await readFile(document.path);
-    return new NextResponse(fileBuffer, {
+
+    // Decrypt if encrypted
+    const outputBuffer = document.encrypted ? decryptBuffer(fileBuffer) : fileBuffer;
+
+    return new NextResponse(new Uint8Array(outputBuffer), {
       headers: {
         "Content-Type": document.mimeType,
         "Content-Disposition": `attachment; filename="${document.originalName}"`,
-        "Content-Length": document.size.toString(),
+        "Content-Length": outputBuffer.length.toString(),
       },
     });
   } catch {

@@ -10,10 +10,35 @@ export interface AuthUser {
   email: string;
   firstName: string;
   lastName: string;
-  role: string;
+  role: string; // "admin" | "member" | "viewer"
   companyId: string;
   companyName: string;
 }
+
+// Roles that can modify data (create, update, delete deadlines/documents)
+export function canWrite(user: AuthUser): boolean {
+  return user.role === "admin" || user.role === "member";
+}
+
+// Roles that can manage team, verify items, access review queue
+export function isAdmin(user: AuthUser): boolean {
+  return user.role === "admin";
+}
+
+// Platform-wide super admin — manages all companies and all users
+export function isSuperAdmin(user: AuthUser): boolean {
+  return user.role === "superadmin";
+}
+
+// Safe user fields to include in API responses (excludes passwordHash)
+export const SAFE_USER_SELECT = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  email: true,
+  role: true,
+  phone: true,
+} as const;
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);

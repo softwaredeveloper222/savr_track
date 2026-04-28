@@ -6,7 +6,7 @@ import { cookies } from "next/headers";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password, firstName, lastName, companyName, phone } = body;
+    const { email, password, firstName, lastName, companyName, phone, businessType } = body;
 
     if (!email || !password || !firstName || !lastName || !companyName) {
       return NextResponse.json(
@@ -48,6 +48,7 @@ export async function POST(request: NextRequest) {
     const company = await prisma.company.create({
       data: {
         name: companyName,
+        businessType: businessType || null,
       },
     });
 

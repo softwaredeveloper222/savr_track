@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { CATEGORIES } from "@/lib/categories";
+import Select from "@/components/Select";
+import DatePicker from "@/components/DatePicker";
 
 interface TeamMember {
   id: string;
@@ -134,7 +136,7 @@ export default function EditDeadlinePage() {
       <div className="flex justify-center">
         <div className="w-full max-w-2xl">
           <div className="h-8 w-48 bg-slate-200 rounded animate-pulse mb-6" />
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5 animate-pulse">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5 animate-fade-in">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i}>
                 <div className="h-4 w-24 bg-slate-200 rounded mb-2" />
@@ -150,31 +152,25 @@ export default function EditDeadlinePage() {
   return (
     <div className="flex justify-center">
       <div className="w-full max-w-2xl">
-        <div className="mb-6">
+        <div className="mb-6 animate-fade-in">
           <h1 className="text-2xl font-bold text-slate-900">Edit Deadline</h1>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 space-y-5 animate-fade-in" style={{ animationDelay: "100ms" }}>
             {/* Category */}
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Category
               </label>
-              <select
+              <Select
                 value={form.category}
-                onChange={(e) => updateField("category", e.target.value)}
-                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${
-                  errors.category ? "border-red-400" : "border-slate-300"
-                }`}
-              >
-                <option value="">Select a category</option>
-                {CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => updateField("category", v)}
+                placeholder="Select a category"
+                error={!!errors.category}
+                searchable
+                options={CATEGORIES.map((c) => ({ value: c.value, label: c.label }))}
+              />
               {errors.category && (
                 <p className="mt-1 text-xs text-red-600">{errors.category}</p>
               )}
@@ -190,7 +186,7 @@ export default function EditDeadlinePage() {
                 value={form.title}
                 onChange={(e) => updateField("title", e.target.value)}
                 placeholder="e.g. General Liability Insurance Renewal"
-                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${
+                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none ${
                   errors.title ? "border-red-400" : "border-slate-300"
                 }`}
               />
@@ -204,13 +200,11 @@ export default function EditDeadlinePage() {
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Expiration Date
               </label>
-              <input
-                type="date"
+              <DatePicker
                 value={form.expirationDate}
-                onChange={(e) => updateField("expirationDate", e.target.value)}
-                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${
-                  errors.expirationDate ? "border-red-400" : "border-slate-300"
-                }`}
+                onChange={(v) => updateField("expirationDate", v)}
+                placeholder="Select expiration date"
+                error={!!errors.expirationDate}
               />
               {errors.expirationDate && (
                 <p className="mt-1 text-xs text-red-600">
@@ -224,7 +218,7 @@ export default function EditDeadlinePage() {
               <button
                 type="button"
                 onClick={() => setShowIssueDate(!showIssueDate)}
-                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
+                className="text-sm text-teal-600 hover:text-teal-700 font-medium transition-colors"
               >
                 {showIssueDate ? "- Remove issue date" : "+ Add issue date"}
               </button>
@@ -233,11 +227,10 @@ export default function EditDeadlinePage() {
                   <label className="block text-sm font-medium text-slate-700 mb-1.5">
                     Issue Date
                   </label>
-                  <input
-                    type="date"
+                  <DatePicker
                     value={form.issueDate}
-                    onChange={(e) => updateField("issueDate", e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                    onChange={(v) => updateField("issueDate", v)}
+                    placeholder="Select issue date"
                   />
                 </div>
               )}
@@ -248,20 +241,16 @@ export default function EditDeadlinePage() {
               <label className="block text-sm font-medium text-slate-700 mb-1.5">
                 Owner
               </label>
-              <select
+              <Select
                 value={form.ownerId}
-                onChange={(e) => updateField("ownerId", e.target.value)}
-                className={`w-full rounded-lg border px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${
-                  errors.ownerId ? "border-red-400" : "border-slate-300"
-                }`}
-              >
-                <option value="">Select an owner</option>
-                {teamMembers.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.firstName} {m.lastName}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => updateField("ownerId", v)}
+                placeholder="Select an owner"
+                error={!!errors.ownerId}
+                options={teamMembers.map((m) => ({
+                  value: m.id,
+                  label: `${m.firstName} ${m.lastName}`,
+                }))}
+              />
               {errors.ownerId && (
                 <p className="mt-1 text-xs text-red-600">{errors.ownerId}</p>
               )}
@@ -276,7 +265,7 @@ export default function EditDeadlinePage() {
                 type="button"
                 onClick={() => updateField("isRecurring", !form.isRecurring)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                  form.isRecurring ? "bg-indigo-600" : "bg-slate-300"
+                  form.isRecurring ? "bg-teal-600" : "bg-slate-300"
                 }`}
               >
                 <span
@@ -301,7 +290,7 @@ export default function EditDeadlinePage() {
                       parseInt(e.target.value) || 1
                     )
                   }
-                  className={`w-full rounded-lg border px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none ${
+                  className={`w-full rounded-lg border px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none ${
                     errors.recurringMonths ? "border-red-400" : "border-slate-300"
                   }`}
                 />
@@ -324,13 +313,13 @@ export default function EditDeadlinePage() {
                 onChange={(e) => updateField("notes", e.target.value)}
                 rows={3}
                 placeholder="Any additional notes..."
-                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none"
+                className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none resize-none"
               />
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-end gap-3 mt-6">
+          <div className="flex items-center justify-end gap-3 mt-6 animate-fade-in" style={{ animationDelay: "200ms" }}>
             <Link
               href={`/deadlines/${id}`}
               className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors"
@@ -340,7 +329,7 @@ export default function EditDeadlinePage() {
             <button
               type="submit"
               disabled={submitting}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
+              className="bg-teal-600 hover:bg-teal-700 text-white rounded-lg px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-50"
             >
               {submitting ? "Saving..." : "Save Changes"}
             </button>

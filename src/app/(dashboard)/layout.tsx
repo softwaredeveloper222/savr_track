@@ -11,6 +11,10 @@ import {
   LogOut,
   Menu,
   X,
+  ShieldCheck,
+  ChevronRight,
+  ClipboardCheck,
+  Settings,
 } from "lucide-react";
 
 interface User {
@@ -19,15 +23,22 @@ interface User {
   lastName: string;
   email: string;
   role: string;
-  company?: { id: string; name: string };
+  company?: {
+    id: string;
+    name: string;
+    businessType?: string;
+    onboardingCompleted?: boolean;
+  };
 }
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/deadlines", label: "Deadlines", icon: CalendarClock },
+  { href: "/review", label: "Review Queue", icon: ClipboardCheck },
   { href: "/calendar", label: "Calendar", icon: Calendar },
   { href: "/team", label: "Team", icon: Users },
   { href: "/activity", label: "Activity", icon: Activity },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 function getInitials(name: string): string {
@@ -59,7 +70,24 @@ export default function DashboardLayout({
           return;
         }
         const data = await res.json();
-        setUser(data.user ?? data);
+        const userData = data.user ?? data;
+
+        // Superadmins go to the platform area, not the dashboard
+        if (userData.role === "superadmin") {
+          router.replace("/platform");
+          return;
+        }
+
+        setUser(userData);
+
+        if (
+          userData.company?.businessType &&
+          !userData.company?.onboardingCompleted &&
+          !window.location.pathname.includes("/onboarding")
+        ) {
+          router.replace("/onboarding");
+          return;
+        }
       } catch {
         router.replace("/login");
       } finally {
@@ -80,8 +108,11 @@ export default function DashboardLayout({
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-slate-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-300 border-t-slate-600" />
+      <div className="flex h-screen items-center justify-center bg-[#f8fafb]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-slate-200 border-t-teal-600" />
+          <p className="text-xs text-slate-400">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -93,7 +124,7 @@ export default function DashboardLayout({
       {/* Mobile backdrop */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -101,31 +132,45 @@ export default function DashboardLayout({
       {/* Sidebar */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-[#1e293b] transition-transform duration-300
+          fixed inset-y-0 left-0 z-40 flex w-[260px] flex-col bg-[#0f1a2e] transition-transform duration-300 ease-out
           lg:static lg:translate-x-0
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         `}
       >
         {/* Brand */}
-        <div className="flex items-center justify-between px-6 py-6">
-          <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">
-              SavrTrack
-            </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Compliance Tracking
-            </p>
+        <div className="flex items-center justify-between px-5 py-5">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-teal-600 flex items-center justify-center shadow-lg shadow-teal-600/20">
+              <ShieldCheck className="h-[18px] w-[18px] text-white" />
+            </div>
+            <div>
+              <h1 className="text-[15px] font-bold text-white tracking-tight">
+                Surevia
+              </h1>
+              <p className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
+                Compliance
+              </p>
+            </div>
           </div>
           <button
-            className="text-slate-400 hover:text-white lg:hidden"
+            className="text-slate-500 hover:text-white lg:hidden transition-colors"
             onClick={() => setSidebarOpen(false)}
           >
             <X size={20} />
           </button>
         </div>
 
+        {/* Company name */}
+        {user.company && (
+          <div className="mx-4 mb-4 px-3 py-2 rounded-lg bg-white/5 border border-white/5">
+            <p className="text-xs font-medium text-slate-400 truncate">
+              {user.company.name}
+            </p>
+          </div>
+        )}
+
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 space-y-0.5">
           {navItems.map((item) => {
             const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
             const Icon = item.icon;
@@ -139,39 +184,40 @@ export default function DashboardLayout({
                   setSidebarOpen(false);
                 }}
                 className={`
-                  flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all
+                  flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200
                   ${
                     isActive
-                      ? "bg-white/10 text-white"
-                      : "text-slate-400 hover:text-white hover:bg-white/5"
+                      ? "bg-teal-600/15 text-teal-400 shadow-sm"
+                      : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
                   }
                 `}
               >
-                <Icon size={18} />
-                {item.label}
+                <Icon size={17} className={isActive ? "text-teal-400" : ""} />
+                <span className="flex-1">{item.label}</span>
+                {isActive && <ChevronRight size={14} className="text-teal-500/60" />}
               </a>
             );
           })}
         </nav>
 
         {/* User info */}
-        <div className="border-t border-white/10 px-4 py-4">
+        <div className="border-t border-white/5 px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-[11px] font-bold text-white shadow-sm">
               {getInitials(`${user.firstName} ${user.lastName}`)}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">
+              <p className="text-sm font-medium text-slate-200 truncate">
                 {user.firstName} {user.lastName}
               </p>
-              <p className="text-xs text-slate-400 truncate">{user.role}</p>
+              <p className="text-[11px] text-slate-500 capitalize">{user.role}</p>
             </div>
             <button
               onClick={handleLogout}
-              className="text-slate-400 hover:text-white transition-colors"
+              className="text-slate-500 hover:text-red-400 transition-colors p-1.5 rounded-lg hover:bg-white/5"
               title="Logout"
             >
-              <LogOut size={18} />
+              <LogOut size={16} />
             </button>
           </div>
         </div>
@@ -180,20 +226,25 @@ export default function DashboardLayout({
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Mobile header */}
-        <div className="flex items-center px-4 py-3 bg-white border-b border-slate-200 lg:hidden">
+        <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-slate-100 lg:hidden shadow-sm">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="text-slate-600 hover:text-slate-900"
+            className="text-slate-600 hover:text-slate-900 p-1"
           >
-            <Menu size={24} />
+            <Menu size={22} />
           </button>
-          <span className="ml-3 text-lg font-bold text-slate-900">
-            SavrTrack
-          </span>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg compliance-gradient flex items-center justify-center">
+              <ShieldCheck className="h-3.5 w-3.5 text-white" />
+            </div>
+            <span className="text-base font-bold text-slate-900">Surevia</span>
+          </div>
         </div>
 
-        <main className="flex-1 overflow-y-auto bg-slate-50 p-8">
-          {children}
+        <main className="flex-1 overflow-y-auto bg-[#f8fafb]">
+          <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+            {children}
+          </div>
         </main>
       </div>
     </div>

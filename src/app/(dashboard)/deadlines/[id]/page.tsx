@@ -23,9 +23,13 @@ import {
   X,
   Download,
   Users,
+  Sparkles,
+  ShieldCheck,
+  ShieldAlert,
+  Eye,
+  Lock,
 } from "lucide-react";
 
-// Matches Prisma User select shape from API
 interface OwnerData {
   id: string;
   firstName: string;
@@ -33,7 +37,6 @@ interface OwnerData {
   email: string;
 }
 
-// Matches Prisma Document shape
 interface DocumentData {
   id: string;
   filename: string;
@@ -41,10 +44,15 @@ interface DocumentData {
   mimeType: string;
   size: number;
   path: string;
+  encrypted: boolean;
+  scanned: boolean;
+  scanConfidence: string | null;
+  extractedTitle: string | null;
+  extractedCategory: string | null;
+  extractedExpDate: string | null;
   createdAt: string;
 }
 
-// Matches Prisma ActivityLog with included user
 interface ActivityData {
   id: string;
   action: string;
@@ -57,7 +65,6 @@ interface ActivityData {
   };
 }
 
-// Matches Prisma DeadlineWatcher with included user
 interface WatcherData {
   id: string;
   userId: string;
@@ -69,20 +76,26 @@ interface WatcherData {
   };
 }
 
-// Matches Prisma Reminder shape
 interface ReminderData {
   id: string;
   type: string;
+  channel: string;
   daysBefore: number;
   sentAt: string | null;
+  sentVia: string | null;
 }
 
-// Matches the full deadline GET response from /api/deadlines/[id]
 interface DeadlineData {
   id: string;
   title: string;
   category: string;
   status: string;
+  verificationStatus: string;
+  scanConfidence: string | null;
+  scanData: string | null;
+  verifiedAt: string | null;
+  verifiedBy: { id: string; firstName: string; lastName: string } | null;
+  reviewNote: string | null;
   expirationDate: string;
   issueDate: string | null;
   notes: string | null;
@@ -118,7 +131,7 @@ function initials(firstName: string, lastName: string): string {
 }
 
 function reminderLabel(daysBefore: number): string {
-  if (daysBefore === 0) return "Overdue";
+  if (daysBefore === 0) return "Day of expiration";
   if (daysBefore === 1) return "1 day before";
   return `${daysBefore} days before`;
 }
@@ -133,8 +146,8 @@ function CompletionModal({
   const [note, setNote] = useState("");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl border border-slate-200 p-6 w-full max-w-md mx-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-xl shadow-xl border border-slate-200 p-6 w-full max-w-md mx-4 animate-scale-in">
         <h3 className="text-lg font-semibold text-slate-900 mb-1">
           Mark as Complete
         </h3>
@@ -146,7 +159,7 @@ function CompletionModal({
           onChange={(e) => setNote(e.target.value)}
           rows={3}
           placeholder="Completion note..."
-          className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none resize-none mb-4"
+          className="w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none resize-none mb-4"
         />
         <div className="flex justify-end gap-3">
           <button
@@ -183,8 +196,8 @@ function AddWatcherModal({
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl border border-slate-200 p-6 w-full max-w-sm mx-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-xl shadow-xl border border-slate-200 p-6 w-full max-w-sm mx-4 animate-scale-in">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-slate-900">Add Watcher</h3>
           <button
@@ -202,7 +215,7 @@ function AddWatcherModal({
                 onClick={() => onAdd(member.id)}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 transition-colors text-left"
               >
-                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-teal-100 text-teal-700 text-xs font-semibold">
                   {initials(member.firstName, member.lastName)}
                 </span>
                 <div>
@@ -235,6 +248,15 @@ export default function DeadlineDetailPage() {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showWatcherModal, setShowWatcherModal] = useState(false);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [docSuggestion, setDocSuggestion] = useState<{
+    filename: string;
+    file: File;
+    suggestedTitle: string;
+    suggestedCategory: string | null;
+    suggestedExpirationDate: string | null;
+    confidence: string;
+  } | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   async function fetchDeadline() {
     try {
@@ -251,7 +273,6 @@ export default function DeadlineDetailPage() {
   useEffect(() => {
     async function load() {
       await fetchDeadline();
-      // Also load team members for watcher modal
       try {
         const res = await fetch("/api/team");
         if (res.ok) {
@@ -282,7 +303,6 @@ export default function DeadlineDetailPage() {
         body: JSON.stringify({ completionNote: note || null }),
       });
       if (res.ok) {
-        // Response is { completed, renewed } — refetch full detail instead
         await fetchDeadline();
       }
     } catch (err) {
@@ -332,10 +352,33 @@ export default function DeadlineDetailPage() {
     }
   }
 
-  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    try {
+      const res = await fetch("/api/documents/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name }),
+      });
+      if (res.ok) {
+        const analysis = await res.json();
+        setDocSuggestion({
+          filename: file.name,
+          file,
+          ...analysis,
+        });
+        return;
+      }
+    } catch {
+      // fallback
+    }
+    await uploadFile(file);
+  }
+
+  async function uploadFile(file: File) {
+    setUploading(true);
     const formData = new FormData();
     formData.append("file", file);
     formData.append("deadlineId", id);
@@ -350,7 +393,42 @@ export default function DeadlineDetailPage() {
       }
     } catch (err) {
       console.error("Failed to upload document:", err);
+    } finally {
+      setUploading(false);
+      setDocSuggestion(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  }
+
+  async function handleConfirmUpload(applyToDeadline: boolean) {
+    if (!docSuggestion) return;
+
+    if (applyToDeadline && deadline) {
+      const updates: Record<string, unknown> = {};
+      if (docSuggestion.suggestedCategory && !deadline.category) {
+        updates.category = docSuggestion.suggestedCategory;
+      }
+      if (docSuggestion.suggestedExpirationDate) {
+        updates.expirationDate = docSuggestion.suggestedExpirationDate;
+      }
+      if (Object.keys(updates).length > 0) {
+        try {
+          await fetch(`/api/deadlines/${id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(updates),
+          });
+        } catch {
+          // Non-critical
+        }
+      }
+    }
+
+    await uploadFile(docSuggestion.file);
+  }
+
+  function handleDismissSuggestion() {
+    setDocSuggestion(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -388,16 +466,16 @@ export default function DeadlineDetailPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="h-8 w-64 bg-slate-200 rounded" />
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="space-y-6">
+        <div className="h-8 w-64 shimmer rounded-lg animate-fade-in" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 stagger-children">
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-48" />
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-32" />
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-48"><div className="h-4 shimmer rounded w-1/2 mb-3" /><div className="h-4 shimmer rounded w-1/3" /></div>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-32"><div className="h-4 shimmer rounded w-2/3" /></div>
           </div>
           <div className="space-y-6">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-40" />
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-32" />
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-40"><div className="h-4 shimmer rounded w-1/2 mb-3" /><div className="h-8 shimmer rounded" /></div>
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-32"><div className="h-4 shimmer rounded w-2/3" /></div>
           </div>
         </div>
       </div>
@@ -406,7 +484,7 @@ export default function DeadlineDetailPage() {
 
   if (!deadline) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center animate-fade-in">
         <h3 className="text-lg font-semibold text-slate-900 mb-1">
           Deadline not found
         </h3>
@@ -415,7 +493,7 @@ export default function DeadlineDetailPage() {
         </p>
         <Link
           href="/deadlines"
-          className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+          className="text-teal-600 hover:text-teal-700 text-sm font-medium"
         >
           Back to Deadlines
         </Link>
@@ -426,6 +504,7 @@ export default function DeadlineDetailPage() {
   const days = getDaysUntil(new Date(deadline.expirationDate));
   const urgency = getUrgencyLabel(days);
   const isTerminal = deadline.status === "completed" || deadline.status === "archived";
+  const isUnverified = ["uploaded", "scanned", "needs_review"].includes(deadline.verificationStatus);
 
   const reminders: ReminderData[] = deadline.reminders || [];
   const displayReminders =
@@ -434,8 +513,10 @@ export default function DeadlineDetailPage() {
       : [30, 14, 7, 3, 1, 0].map((d, i) => ({
           id: `default-${i}`,
           type: "email",
+          channel: "email",
           daysBefore: d,
           sentAt: null,
+          sentVia: null,
         }));
 
   return (
@@ -460,7 +541,7 @@ export default function DeadlineDetailPage() {
       )}
 
       {/* Top Section */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-fade-in">
         <div className="flex items-center gap-3 flex-wrap">
           <Link
             href="/deadlines"
@@ -472,6 +553,9 @@ export default function DeadlineDetailPage() {
             {deadline.title}
           </h1>
           <StatusBadge status={deadline.status} />
+          {deadline.verificationStatus !== "verified" && (
+            <StatusBadge status={deadline.verificationStatus} size="sm" />
+          )}
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
             {getCategoryLabel(deadline.category)}
           </span>
@@ -503,12 +587,84 @@ export default function DeadlineDetailPage() {
         )}
       </div>
 
+      {/* Verification Banner */}
+      {isUnverified && (
+        <div className={`rounded-2xl border p-5 animate-slide-down ${
+          deadline.verificationStatus === "needs_review"
+            ? "bg-orange-50 border-orange-200"
+            : "bg-cyan-50 border-cyan-200"
+        }`}>
+          <div className="flex items-start gap-3">
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+              deadline.verificationStatus === "needs_review"
+                ? "bg-orange-100"
+                : "bg-cyan-100"
+            }`}>
+              <ShieldAlert className={`h-4 w-4 ${
+                deadline.verificationStatus === "needs_review"
+                  ? "text-orange-600"
+                  : "text-cyan-600"
+              }`} />
+            </div>
+            <div className="flex-1">
+              <p className={`text-sm font-semibold ${
+                deadline.verificationStatus === "needs_review"
+                  ? "text-orange-900"
+                  : "text-cyan-900"
+              }`}>
+                {deadline.verificationStatus === "needs_review"
+                  ? "This item needs review before reminders activate"
+                  : deadline.verificationStatus === "scanned"
+                    ? "Document scanned — awaiting verification"
+                    : "Document uploaded — pending scan"}
+              </p>
+              {deadline.reviewNote && (
+                <p className="text-xs text-orange-700 mt-1">{deadline.reviewNote}</p>
+              )}
+              {deadline.scanConfidence && (
+                <p className="text-xs mt-1 text-slate-600">
+                  Scan confidence: <span className={`font-semibold ${
+                    deadline.scanConfidence === "high" ? "text-emerald-600" :
+                    deadline.scanConfidence === "medium" ? "text-amber-600" : "text-red-600"
+                  }`}>{deadline.scanConfidence}</span>
+                </p>
+              )}
+              <div className="flex items-center gap-2 mt-3">
+                <Link
+                  href="/review"
+                  className="inline-flex items-center gap-1.5 btn-primary text-xs px-3.5 py-1.5"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  Go to Review Queue
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verified badge */}
+      {deadline.verificationStatus === "verified" && deadline.verifiedAt && (
+        <div className="bg-teal-50 border border-teal-100 rounded-2xl px-5 py-3 flex items-center gap-3 animate-fade-in">
+          <ShieldCheck className="w-5 h-5 text-teal-600 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-teal-800">
+              Verified
+              {deadline.verifiedBy && ` by ${deadline.verifiedBy.firstName} ${deadline.verifiedBy.lastName}`}
+            </p>
+            <p className="text-xs text-teal-600">
+              {format(new Date(deadline.verifiedAt), "MMM d, yyyy 'at' h:mm a")}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column (2/3) */}
         <div className="lg:col-span-2 space-y-6">
           {/* Details Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-fade-in" style={{ animationDelay: "100ms" }}>
             <h2 className="text-base font-semibold text-slate-900 mb-4">
               Details
             </h2>
@@ -545,7 +701,7 @@ export default function DeadlineDetailPage() {
                 <div>
                   <p className="text-xs text-slate-500">Owner</p>
                   <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-teal-100 text-teal-700 text-xs font-semibold">
                       {initials(
                         deadline.owner?.firstName || "",
                         deadline.owner?.lastName || ""
@@ -599,7 +755,7 @@ export default function DeadlineDetailPage() {
           </div>
 
           {/* Documents Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-fade-in" style={{ animationDelay: "200ms" }}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-slate-900">
                 Documents
@@ -616,9 +772,72 @@ export default function DeadlineDetailPage() {
                 type="file"
                 className="hidden"
                 accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx"
-                onChange={handleUpload}
+                onChange={handleFileSelect}
               />
             </div>
+            {/* Document Intelligence Suggestion */}
+            {docSuggestion && (
+              <div className="mb-4 bg-teal-50 border border-teal-200 rounded-2xl p-5 animate-slide-down">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-teal-100 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="h-4 w-4 text-teal-600" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-teal-900">
+                      We detected some info from this document
+                    </p>
+                    <p className="text-xs text-teal-600 mt-0.5">
+                      {docSuggestion.filename}
+                    </p>
+
+                    <div className="mt-3 bg-white rounded-xl border border-teal-100 divide-y divide-teal-50">
+                      <div className="flex items-center justify-between px-3.5 py-2.5">
+                        <span className="text-xs text-slate-500">Title</span>
+                        <span className="text-xs font-medium text-slate-900">{docSuggestion.suggestedTitle}</span>
+                      </div>
+                      {docSuggestion.suggestedCategory && (
+                        <div className="flex items-center justify-between px-3.5 py-2.5">
+                          <span className="text-xs text-slate-500">Category</span>
+                          <span className="text-xs font-medium text-slate-900 capitalize">{docSuggestion.suggestedCategory.replace(/_/g, " ")}</span>
+                        </div>
+                      )}
+                      {docSuggestion.suggestedExpirationDate && (
+                        <div className="flex items-center justify-between px-3.5 py-2.5">
+                          <span className="text-xs text-slate-500">Expiration</span>
+                          <span className="text-xs font-medium text-slate-900">{docSuggestion.suggestedExpirationDate}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {(docSuggestion.suggestedCategory || docSuggestion.suggestedExpirationDate) && (
+                        <button
+                          onClick={() => handleConfirmUpload(true)}
+                          disabled={uploading}
+                          className="btn-primary text-xs px-3.5 py-1.5"
+                        >
+                          {uploading ? "Uploading..." : "Upload & Apply to Deadline"}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleConfirmUpload(false)}
+                        disabled={uploading}
+                        className="btn-secondary text-xs px-3.5 py-1.5"
+                      >
+                        {uploading ? "Uploading..." : "Upload Only"}
+                      </button>
+                      <button
+                        onClick={handleDismissSuggestion}
+                        className="btn-ghost text-xs px-3 py-1.5"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {deadline.documents && deadline.documents.length > 0 ? (
               <div className="space-y-2">
                 {deadline.documents.map((doc) => (
@@ -629,12 +848,31 @@ export default function DeadlineDetailPage() {
                     <div className="flex items-center gap-3">
                       <FileText className="w-4 h-4 text-slate-400" />
                       <div>
-                        <p className="text-sm font-medium text-slate-900">
-                          {doc.originalName}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-medium text-slate-900">
+                            {doc.originalName}
+                          </p>
+                          {doc.encrypted && (
+                            <span title="Encrypted"><Lock className="w-3 h-3 text-teal-500" /></span>
+                          )}
+                          {doc.scanned && doc.scanConfidence && (
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                              doc.scanConfidence === "high"
+                                ? "bg-emerald-50 text-emerald-600"
+                                : doc.scanConfidence === "medium"
+                                  ? "bg-amber-50 text-amber-600"
+                                  : "bg-red-50 text-red-600"
+                            }`}>
+                              {doc.scanConfidence}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-500">
                           {format(new Date(doc.createdAt), "MMM d, yyyy")} &middot;{" "}
                           {(doc.size / 1024).toFixed(0)} KB
+                          {doc.scanned && doc.extractedExpDate && (
+                            <> &middot; Detected exp: {doc.extractedExpDate}</>
+                          )}
                         </p>
                       </div>
                     </div>
@@ -653,10 +891,17 @@ export default function DeadlineDetailPage() {
                 No documents attached yet.
               </p>
             )}
+
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+              <Lock className="w-3 h-3 text-teal-500 flex-shrink-0" />
+              <p className="text-[11px] text-slate-400">
+                All documents are encrypted with AES-256 and accessible only to your company.
+              </p>
+            </div>
           </div>
 
           {/* Activity Log Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-fade-in" style={{ animationDelay: "300ms" }}>
             <h2 className="text-base font-semibold text-slate-900 mb-4">
               Activity Log
             </h2>
@@ -710,7 +955,7 @@ export default function DeadlineDetailPage() {
         <div className="space-y-6">
           {/* Actions Card */}
           {!isTerminal && (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 animate-fade-in-right" style={{ animationDelay: "150ms" }}>
               <h2 className="text-base font-semibold text-slate-900 mb-3">
                 Actions
               </h2>
@@ -748,7 +993,7 @@ export default function DeadlineDetailPage() {
           )}
 
           {/* Watchers Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 animate-fade-in-right" style={{ animationDelay: "250ms" }}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-slate-400" />
@@ -758,7 +1003,7 @@ export default function DeadlineDetailPage() {
               </div>
               <button
                 onClick={() => setShowWatcherModal(true)}
-                className="text-indigo-600 hover:text-indigo-800 transition-colors"
+                className="text-teal-600 hover:text-teal-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />
               </button>
@@ -797,13 +1042,20 @@ export default function DeadlineDetailPage() {
           </div>
 
           {/* Reminders Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 animate-fade-in-right" style={{ animationDelay: "350ms" }}>
             <div className="flex items-center gap-2 mb-3">
               <Bell className="w-4 h-4 text-slate-400" />
               <h2 className="text-base font-semibold text-slate-900">
                 Reminders
               </h2>
             </div>
+            {isUnverified && (
+              <div className="bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 mb-3">
+                <p className="text-xs text-orange-700">
+                  Reminders are paused until this item is verified.
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               {displayReminders
                 .sort((a, b) => b.daysBefore - a.daysBefore)
@@ -816,19 +1068,34 @@ export default function DeadlineDetailPage() {
                       {reminderLabel(reminder.daysBefore)}
                     </span>
                     {reminder.sentAt ? (
-                      <span className="text-xs text-emerald-600 font-medium">
-                        Sent
+                      <span className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        {reminder.sentVia && reminder.sentVia !== "skipped_by_preference"
+                          ? `Sent (${reminder.sentVia})`
+                          : reminder.sentVia === "skipped_by_preference"
+                            ? "Skipped"
+                            : "Sent"}
                       </span>
                     ) : (
-                      <span className="text-xs text-slate-400">Pending</span>
+                      <span className={`text-xs ${isUnverified ? "text-orange-400" : "text-slate-400"}`}>
+                        {isUnverified ? "Paused" : "Pending"}
+                      </span>
                     )}
                   </div>
                 ))}
             </div>
+            <div className="mt-3 pt-3 border-t border-slate-100">
+              <Link
+                href="/settings"
+                className="text-xs text-teal-600 hover:text-teal-700 font-medium transition-colors"
+              >
+                Manage notification preferences →
+              </Link>
+            </div>
           </div>
 
           {/* Notes Card */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 animate-fade-in-right" style={{ animationDelay: "450ms" }}>
             <div className="flex items-center gap-2 mb-3">
               <MessageSquare className="w-4 h-4 text-slate-400" />
               <h2 className="text-base font-semibold text-slate-900">Notes</h2>

@@ -70,8 +70,8 @@ const ACTION_MAP: Record<string, ActionConfig> = {
   },
   reminder_sent: {
     icon: Bell,
-    bgColor: "bg-indigo-100",
-    iconColor: "text-indigo-600",
+    bgColor: "bg-teal-100",
+    iconColor: "text-teal-600",
     label: "sent a reminder for",
   },
   archived: {
@@ -101,16 +101,16 @@ function getActionConfig(action: string): ActionConfig {
 
 function SkeletonTimeline() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 stagger-children">
       {[1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className="flex gap-4 animate-pulse">
+        <div key={i} className="flex gap-4">
           <div className="flex flex-col items-center">
-            <div className="w-8 h-8 rounded-full bg-slate-200" />
+            <div className="w-8 h-8 rounded-full shimmer" />
             {i < 5 && <div className="w-0.5 flex-1 bg-slate-100 mt-2" />}
           </div>
           <div className="flex-1 pb-6">
-            <div className="h-4 bg-slate-200 rounded w-3/4 mb-2" />
-            <div className="h-3 bg-slate-100 rounded w-24" />
+            <div className="h-4 shimmer rounded w-3/4 mb-2" />
+            <div className="h-3 shimmer rounded w-24" />
           </div>
         </div>
       ))}
@@ -145,7 +145,7 @@ export default function ActivityPage() {
 
   return (
     <div>
-      <div className="mb-6">
+      <div className="mb-6 animate-fade-in">
         <h1 className="text-2xl font-bold text-slate-900">Activity Log</h1>
       </div>
 
@@ -156,11 +156,11 @@ export default function ActivityPage() {
       )}
 
       {loading ? (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-fade-in">
           <SkeletonTimeline />
         </div>
       ) : activities.length === 0 ? (
-        <div className="text-center py-16">
+        <div className="text-center py-16 animate-fade-in">
           <div className="mx-auto w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
             <Archive size={24} className="text-slate-400" />
           </div>
@@ -172,8 +172,8 @@ export default function ActivityPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <div className="space-y-0">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 animate-fade-in" style={{ animationDelay: "100ms" }}>
+          <div className="space-y-0 stagger-children">
             {activities.map((activity, index) => {
               const config = getActionConfig(activity.action);
               const Icon = config.icon;
@@ -203,7 +203,7 @@ export default function ActivityPage() {
                       {config.label}{" "}
                       <Link
                         href={`/deadlines/${activity.deadline.id}`}
-                        className="font-medium text-indigo-600 hover:text-indigo-700 transition-colors"
+                        className="font-medium text-teal-600 hover:text-teal-700 transition-colors"
                       >
                         {activity.deadline.title}
                       </Link>

@@ -93,22 +93,30 @@ export async function DELETE(
       return NextResponse.json({ error: "Team member not found" }, { status: 404 });
     }
 
-    // Reassign their owned deadlines to the admin user
+    // Reassign deadlines to the deleting admin
     await prisma.deadline.updateMany({
       where: { ownerId: id },
       data: { ownerId: user.id },
     });
-
-    // Reassign their handled deadlines to the admin user
     await prisma.deadline.updateMany({
       where: { handledById: id },
       data: { handledById: user.id },
     });
 
-    // Delete the user (cascade will handle watchers, activity logs, reminders)
-    await prisma.user.delete({
-      where: { id },
+    // Null out verifier reference
+    await prisma.deadline.updateMany({
+      where: { verifiedById: id },
+      data: { verifiedById: null, verifiedAt: null },
     });
+
+    // Clean up records that reference this user (no automatic cascade)
+    await prisma.deadlineWatcher.deleteMany({ where: { userId: id } });
+    await prisma.activityLog.deleteMany({ where: { userId: id } });
+    await prisma.reminder.deleteMany({ where: { userId: id } });
+    await prisma.accessLog.deleteMany({ where: { userId: id } });
+    await prisma.notificationPreference.deleteMany({ where: { userId: id } });
+
+    await prisma.user.delete({ where: { id } });
 
     return NextResponse.json({ message: "Team member removed successfully" });
   } catch (error) {

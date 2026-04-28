@@ -1,4 +1,4 @@
-import { getAuthUser } from "@/lib/auth";
+import { getAuthUser, canWrite, SAFE_USER_SELECT } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 import { addMonths } from "date-fns";
@@ -14,6 +14,14 @@ export async function POST(
   }
 
   const { id } = await params;
+
+  // Viewers cannot complete deadlines
+  if (!canWrite(user)) {
+    return NextResponse.json(
+      { error: "You don't have permission to complete deadlines" },
+      { status: 403 }
+    );
+  }
 
   const deadline = await prisma.deadline.findUnique({
     where: { id, companyId: user.companyId },
@@ -36,7 +44,7 @@ export async function POST(
       handledById: handledById || null,
     },
     include: {
-      owner: true,
+      owner: { select: SAFE_USER_SELECT },
     },
   });
 
@@ -73,9 +81,10 @@ export async function POST(
         companyId: deadline.companyId,
         locationId: deadline.locationId,
         status: newStatus,
+        verificationStatus: "verified", // Renewed from verified parent — no new document to verify
       },
       include: {
-        owner: true,
+        owner: { select: SAFE_USER_SELECT },
       },
     });
 

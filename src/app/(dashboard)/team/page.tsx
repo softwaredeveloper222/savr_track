@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Edit3, Trash2, X, Phone, Mail } from "lucide-react";
+import Select from "@/components/Select";
 
 const AVATAR_COLORS = [
-  "bg-indigo-500",
+  "bg-teal-500",
   "bg-emerald-500",
   "bg-amber-500",
   "bg-rose-500",
@@ -31,9 +32,9 @@ function getInitials(firstName: string, lastName: string): string {
 function getRoleBadgeClasses(role: string): string {
   switch (role) {
     case "admin":
-      return "bg-indigo-100 text-indigo-700";
-    case "manager":
-      return "bg-amber-100 text-amber-700";
+      return "bg-teal-100 text-teal-700";
+    case "viewer":
+      return "bg-purple-100 text-purple-700";
     default:
       return "bg-slate-100 text-slate-700";
   }
@@ -94,8 +95,8 @@ function MemberFormModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 animate-scale-in">
         <div className="flex items-center justify-between mb-5">
           <h2 className="text-lg font-semibold text-slate-900">
             {isEdit ? "Edit Member" : "Add Member"}
@@ -127,7 +128,7 @@ function MemberFormModal({
                 onChange={(e) =>
                   setForm((f) => ({ ...f, firstName: e.target.value }))
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
             </div>
             <div>
@@ -141,7 +142,7 @@ function MemberFormModal({
                 onChange={(e) =>
                   setForm((f) => ({ ...f, lastName: e.target.value }))
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -158,7 +159,7 @@ function MemberFormModal({
               onChange={(e) =>
                 setForm((f) => ({ ...f, email: e.target.value }))
               }
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-slate-50 disabled:text-slate-500"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent disabled:bg-slate-50 disabled:text-slate-500"
             />
           </div>
 
@@ -174,7 +175,7 @@ function MemberFormModal({
                 onChange={(e) =>
                   setForm((f) => ({ ...f, password: e.target.value }))
                 }
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               />
             </div>
           )}
@@ -183,17 +184,15 @@ function MemberFormModal({
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Role
             </label>
-            <select
+            <Select
               value={form.role}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, role: e.target.value }))
-              }
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            >
-              <option value="admin">Admin</option>
-              <option value="manager">Manager</option>
-              <option value="member">Member</option>
-            </select>
+              onChange={(v) => setForm((f) => ({ ...f, role: v }))}
+              options={[
+                { value: "admin", label: "Admin", description: "Full access to all features" },
+                { value: "member", label: "Member", description: "Create and manage deadlines" },
+                { value: "viewer", label: "Viewer (Guest)", description: "Read-only access — cannot create or edit" },
+              ]}
+            />
           </div>
 
           <div>
@@ -206,7 +205,7 @@ function MemberFormModal({
               onChange={(e) =>
                 setForm((f) => ({ ...f, phone: e.target.value }))
               }
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
               placeholder="Optional"
             />
           </div>
@@ -222,7 +221,7 @@ function MemberFormModal({
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors disabled:opacity-50"
             >
               {saving
                 ? "Saving..."
@@ -239,16 +238,16 @@ function MemberFormModal({
 
 function SkeletonCard() {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 animate-pulse">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 animate-fade-in">
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-12 h-12 rounded-full bg-slate-200" />
+        <div className="w-12 h-12 rounded-full shimmer" />
         <div className="flex-1">
-          <div className="h-4 bg-slate-200 rounded w-32 mb-2" />
-          <div className="h-3 bg-slate-100 rounded w-24" />
+          <div className="h-4 shimmer rounded w-32 mb-2" />
+          <div className="h-3 shimmer rounded w-24" />
         </div>
       </div>
-      <div className="h-3 bg-slate-100 rounded w-40 mb-2" />
-      <div className="h-3 bg-slate-100 rounded w-28" />
+      <div className="h-3 shimmer rounded w-40 mb-2" />
+      <div className="h-3 shimmer rounded w-28" />
     </div>
   );
 }
@@ -368,12 +367,12 @@ export default function TeamPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 animate-fade-in">
         <h1 className="text-2xl font-bold text-slate-900">Team</h1>
         {isAdmin && (
           <button
             onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+            className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 transition-colors"
           >
             <Plus size={16} />
             Add Member
@@ -394,7 +393,7 @@ export default function TeamPage() {
           ))}
         </div>
       ) : members.length === 0 ? (
-        <div className="text-center py-16">
+        <div className="text-center py-16 animate-fade-in">
           <div className="mx-auto w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
             <Plus size={24} className="text-slate-400" />
           </div>
@@ -406,13 +405,13 @@ export default function TeamPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
           {members.map((member) => {
             const fullName = `${member.firstName} ${member.lastName}`;
             return (
               <div
                 key={member.id}
-                className="bg-white rounded-xl shadow-sm border border-slate-200 p-5"
+                className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 card-hover"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
@@ -436,7 +435,7 @@ export default function TeamPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => setEditMember(member)}
-                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
                         title="Edit"
                       >
                         <Edit3 size={14} />

@@ -8,15 +8,20 @@ datasource db {
 }
 
 model Company {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  name      String
-  phone     String?
-  address   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  users     User[]
-  deadlines Deadline[]
-  locations Location[]
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  name                String
+  phone               String?
+  address             String?
+  businessType        String?
+  onboardingCompleted Boolean  @default(false)
+  suspended           Boolean  @default(false)
+  suspendedAt         DateTime?
+  suspendedReason     String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  users               User[]
+  deadlines           Deadline[]
+  locations           Location[]
 }
 
 model User {
@@ -32,11 +37,14 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  ownedDeadlines    Deadline[]     @relation("DeadlineOwner")
-  handledDeadlines  Deadline[]     @relation("DeadlineHandler")
-  watchedDeadlines  DeadlineWatcher[]
-  activityLogs      ActivityLog[]
-  reminders         Reminder[]
+  ownedDeadlines         Deadline[]           @relation("DeadlineOwner")
+  handledDeadlines       Deadline[]           @relation("DeadlineHandler")
+  verifiedDeadlines      Deadline[]           @relation("DeadlineVerifier")
+  watchedDeadlines       DeadlineWatcher[]
+  activityLogs           ActivityLog[]
+  reminders              Reminder[]
+  accessLogs             AccessLog[]
+  notificationPreference NotificationPreference?
 }
 
 model Location {
@@ -61,6 +69,15 @@ model Deadline {
   recurringMonths Int?
   completedAt    DateTime?
   completionNote String?
+
+  // Verification pipeline fields
+  verificationStatus String   @default("verified") // uploaded, scanned, needs_review, verified
+  scanConfidence     String?  // high, medium, low
+  scanData           String?  // JSON string of extracted data from document scan
+  verifiedAt         DateTime?
+  verifiedById       String?  @db.ObjectId
+  verifiedBy         User?    @relation("DeadlineVerifier", fields: [verifiedById], references: [id])
+  reviewNote         String?
 
   ownerId        String   @db.ObjectId
   owner          User     @relation("DeadlineOwner", fields: [ownerId], references: [id])
@@ -92,12 +109,23 @@ model DeadlineWatcher {
 }
 
 model Document {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  filename   String
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  filename     String
   originalName String
-  mimeType   String
-  size       Int
-  path       String
+  mimeType     String
+  size         Int
+  path         String
+  encrypted    Boolean  @default(false)
+
+  // Scan results
+  scanned          Boolean  @default(false)
+  scanConfidence   String?  // high, medium, low
+  extractedTitle   String?
+  extractedCategory String?
+  extractedExpDate String?
+  extractedText    String?  // first N chars of extracted text for reference
+  scanError        String?
+
   deadlineId String   @db.ObjectId
   deadline   Deadline @relation(fields: [deadlineId], references: [id], onDelete: Cascade)
   createdAt  DateTime @default(now())
@@ -116,12 +144,38 @@ model ActivityLog {
 
 model Reminder {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  type       String
+  type       String   @default("email") // email, sms
+  channel    String   @default("email") // email, sms, both
   daysBefore Int
   sentAt     DateTime?
+  sentVia    String?  // email, sms, both — tracks what was actually sent
   deadlineId String   @db.ObjectId
   deadline   Deadline @relation(fields: [deadlineId], references: [id], onDelete: Cascade)
   userId     String   @db.ObjectId
   user       User     @relation(fields: [userId], references: [id])
   createdAt  DateTime @default(now())
+}
+
+model AccessLog {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  action     String   // document_viewed, document_downloaded, deadline_viewed
+  resource   String   // "document:xyz" or "deadline:xyz"
+  details    String?
+  userId     String   @db.ObjectId
+  user       User     @relation(fields: [userId], references: [id])
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+}
+
+model NotificationPreference {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String   @unique @db.ObjectId
+  user           User     @relation(fields: [userId], references: [id])
+  emailEnabled   Boolean  @default(true)
+  smsEnabled     Boolean  @default(false)
+  // Reminder intervals the user wants (subset of [30,14,7,3,1,0])
+  reminderDays   Int[]    @default([30, 14, 7, 3, 1, 0])
+  escalationDays Int      @default(3) // days after overdue before escalating to admin
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

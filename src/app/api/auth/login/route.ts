@@ -6,14 +6,17 @@ import { cookies } from "next/headers";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { email, password } = body;
+    const { email: rawEmail, password } = body;
 
-    if (!email || !password) {
+    if (!rawEmail || !password) {
       return NextResponse.json(
         { error: "Email and password are required" },
         { status: 400 }
       );
     }
+
+    // Normalize email — script and form may differ in case
+    const email = rawEmail.trim().toLowerCase();
 
     // Find user with company
     const user = await prisma.user.findUnique({
@@ -35,6 +38,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Invalid email or password" },
         { status: 401 }
+      );
+    }
+
+    // Block login for suspended companies — except superadmins, who manage the platform
+    if (user.company.suspended && user.role !== "superadmin") {
+      return NextResponse.json(
+        {
+          error:
+            "Your company account is currently suspended. Please contact support for assistance.",
+        },
+        { status: 403 }
       );
     }
 

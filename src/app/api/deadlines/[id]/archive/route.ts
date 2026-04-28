@@ -1,4 +1,4 @@
-import { getAuthUser } from "@/lib/auth";
+import { getAuthUser, canWrite, SAFE_USER_SELECT } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -21,13 +21,21 @@ export async function POST(
     return NextResponse.json({ error: "Deadline not found" }, { status: 404 });
   }
 
+  // Viewers cannot archive deadlines
+  if (!canWrite(user)) {
+    return NextResponse.json(
+      { error: "You don't have permission to archive deadlines" },
+      { status: 403 }
+    );
+  }
+
   const updated = await prisma.deadline.update({
     where: { id },
     data: {
       status: "archived",
     },
     include: {
-      owner: true,
+      owner: { select: SAFE_USER_SELECT },
     },
   });
 

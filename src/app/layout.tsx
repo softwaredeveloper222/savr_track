@@ -8,9 +8,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "SavrTrack - Contractor Compliance Tracking",
+  title: "Surevia - Contractor Compliance Management",
   description:
-    "Track contractor deadlines, compliance requirements, and documentation with ease. Stay on top of every obligation and never miss a critical date.",
+    "The compliance management platform built for contractors. Track licenses, certifications, insurance, and deadlines across your entire team.",
 };
 
 export default function RootLayout({
@@ -20,7 +20,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased bg-slate-50 min-h-screen`}>
+      <body className={`${inter.variable} font-sans antialiased bg-[#f8fafb] min-h-screen`}>
         {children}
       </body>
     </html>

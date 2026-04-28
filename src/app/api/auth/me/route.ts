@@ -50,6 +50,8 @@ export async function GET() {
           name: user.company.name,
           phone: user.company.phone,
           address: user.company.address,
+          businessType: user.company.businessType,
+          onboardingCompleted: user.company.onboardingCompleted,
         },
       },
     });

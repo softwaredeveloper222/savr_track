@@ -31,6 +31,19 @@ export async function POST(
     );
   }
 
+  // Validate the user being added belongs to the same company
+  const targetUser = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { companyId: true },
+  });
+
+  if (!targetUser || targetUser.companyId !== user.companyId) {
+    return NextResponse.json(
+      { error: "User not found in your company" },
+      { status: 400 }
+    );
+  }
+
   try {
     const watcher = await prisma.deadlineWatcher.create({
       data: {
@@ -38,7 +51,7 @@ export async function POST(
         userId,
       },
       include: {
-        user: true,
+        user: { select: { id: true, firstName: true, lastName: true, email: true } },
       },
     });
 
